@@ -1,11 +1,11 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import { AdminLayout } from '@/admin/AdminLayout';
 import { ToastProvider } from '@/components/ui/Toast';
 import { SettingsContext, useSettingsQuery } from '@/hooks/useSettings';
-import { ErrorState } from '@/components/ui/States';
+import { ErrorState, LoadingBlock } from '@/components/ui/States';
 import { isConfigured } from '@/lib/supabase';
 import { SetupNotice } from '@/components/shared/SetupNotice';
 
@@ -64,7 +64,14 @@ const router = createBrowserRouter([
       { path: '*',                          element: <NotFound /> },
     ],
   },
-  { path: '/admin/login', element: <AdminLogin /> },
+  {
+    path: '/admin/login',
+    element: (
+      <Suspense fallback={<LoadingBlock className="min-h-screen" label="جارٍ تحميل صفحة الدخول…" />}>
+        <AdminLogin />
+      </Suspense>
+    ),
+  },
   {
     path: '/admin',
     element: <AdminLayout />,
@@ -116,7 +123,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <SettingsProvider>
-          <RouterProvider router={router} fallbackElement={<ErrorState />} />
+          <Suspense fallback={<LoadingBlock className="min-h-screen" label="جارٍ التحميل…" />}>
+            <RouterProvider router={router} fallbackElement={<ErrorState />} />
+          </Suspense>
         </SettingsProvider>
       </ToastProvider>
     </QueryClientProvider>
