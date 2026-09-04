@@ -22,11 +22,21 @@ export function useAuth(): AuthState {
       if (!data.session) { setState({ loading: false, admin: null, email: null }); return; }
       const admin = await fetchCurrentAdmin();
       if (!alive) return;
-      setState({ loading: false, admin, email: data.session.user.email ?? null });
+      setState((prev) => {
+        // If transient fetch returned null but we already had an admin profile, retain existing admin
+        const effectiveAdmin = admin ?? prev.admin;
+        return { loading: false, admin: effectiveAdmin, email: data.session?.user.email ?? prev.email };
+      });
     };
 
     void load();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => { void load(); });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        if (alive) setState({ loading: false, admin: null, email: null });
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        void load();
+      }
+    });
     return () => { alive = false; sub.subscription.unsubscribe(); };
   }, []);
 

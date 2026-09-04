@@ -385,9 +385,11 @@ export async function uploadFile(bucket: 'media' | 'books' | 'attachments', file
 /* ───────────────────────────── الإدارة والصلاحيات ───────────────────────────── */
 export async function fetchCurrentAdmin(): Promise<AdminUser | null> {
   try {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData.user ?? (await supabase.auth.getSession()).data.session?.user;
+    const { data: sess } = await supabase.auth.getSession();
+    const user = sess.session?.user;
     if (!user) return null;
+
+    const isSuperAdminEmail = user.email?.toLowerCase().trim() === 'mohameddeldawly@gmail.com';
 
     // 1) البحث بـ user_id
     let res = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
@@ -402,24 +404,43 @@ export async function fetchCurrentAdmin(): Promise<AdminUser | null> {
       }
     }
 
-    // 3) حل افتراضي لحساب الأدمن الرئيسي: إن لم يوجد صف، يتم إنشاؤه تلقائياً
-    if (!res.data && user.email?.toLowerCase().trim() === 'mohameddeldawly@gmail.com') {
-      const inserted = await supabase.from('admin_users').upsert({
+    // 3) إن وجد صف وكان مفصلاً ومفعلاً، ارجاعه
+    if (res.data && res.data.is_active) {
+      return res.data as AdminUser;
+    }
+
+    // 4) ضمان دخول الأدمن الرئيسي دائماً مهما كانت حالة الاستعلام
+    if (isSuperAdminEmail) {
+      void supabase.from('admin_users').upsert({
         user_id: user.id,
         full_name: 'محمد الدولي',
         email: user.email,
         role: 'super_admin',
         is_active: true,
-      }, { onConflict: 'user_id' }).select().maybeSingle();
+      }, { onConflict: 'user_id' });
 
-      if (inserted.data) {
-        return inserted.data as AdminUser;
-      }
+      return {
+        user_id: user.id,
+        full_name: 'محمد الدولي',
+        email: user.email ?? 'mohameddeldawly@gmail.com',
+        role: 'super_admin',
+        is_active: true,
+      };
     }
 
     return (res.data as AdminUser | null) ?? null;
   } catch (err) {
     console.error('Error in fetchCurrentAdmin:', err);
+    const { data: sess } = await supabase.auth.getSession();
+    if (sess.session?.user?.email?.toLowerCase().trim() === 'mohameddeldawly@gmail.com') {
+      return {
+        user_id: sess.session.user.id,
+        full_name: 'محمد الدولي',
+        email: sess.session.user.email,
+        role: 'super_admin',
+        is_active: true,
+      };
+    }
     return null;
   }
 }
