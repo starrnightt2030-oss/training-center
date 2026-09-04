@@ -384,15 +384,44 @@ export async function uploadFile(bucket: 'media' | 'books' | 'attachments', file
 
 /* ───────────────────────────── الإدارة والصلاحيات ───────────────────────────── */
 export async function fetchCurrentAdmin(): Promise<AdminUser | null> {
-  const { data: authData } = await supabase.auth.getUser();
-  const user = authData.user ?? (await supabase.auth.getSession()).data.session?.user;
-  if (!user) return null;
-  const res = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
-  if (res.error) {
-    console.error('Error fetching admin user profile:', res.error);
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData.user ?? (await supabase.auth.getSession()).data.session?.user;
+    if (!user) return null;
+
+    // 1) البحث بـ user_id
+    let res = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
+
+    // 2) إن لم يُعثر عليه وكان البريد متوفراً، البحث بالبريد الإلكتروني وتحديث المعرّف
+    if (!res.data && user.email) {
+      const emailClean = user.email.toLowerCase().trim();
+      const byEmail = await supabase.from('admin_users').select('*').eq('email', emailClean).maybeSingle();
+      if (byEmail.data) {
+        await supabase.from('admin_users').update({ user_id: user.id }).eq('email', emailClean);
+        res = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
+      }
+    }
+
+    // 3) حل افتراضي لحساب الأدمن الرئيسي: إن لم يوجد صف، يتم إنشاؤه تلقائياً
+    if (!res.data && user.email?.toLowerCase().trim() === 'mohameddeldawly@gmail.com') {
+      const inserted = await supabase.from('admin_users').upsert({
+        user_id: user.id,
+        full_name: 'محمد الدولي',
+        email: user.email,
+        role: 'super_admin',
+        is_active: true,
+      }, { onConflict: 'user_id' }).select().maybeSingle();
+
+      if (inserted.data) {
+        return inserted.data as AdminUser;
+      }
+    }
+
+    return (res.data as AdminUser | null) ?? null;
+  } catch (err) {
+    console.error('Error in fetchCurrentAdmin:', err);
     return null;
   }
-  return res.data as AdminUser | null;
 }
 
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
