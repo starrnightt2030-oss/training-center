@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileDown, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Download, FileDown, FileUp, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { AdminPage } from './AdminPage';
 import { Input, Select } from '@/components/ui/Field';
@@ -10,7 +11,7 @@ import { EmptyState, ErrorState, SkeletonRows } from '@/components/ui/States';
 import { Pagination, Table, Td, Th } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
 import { deleteStudent, fetchGrades, fetchSpecializations, fetchStudents, saveStudent } from '@/data/api';
-import { exportRows } from '@/lib/excel';
+import { downloadStudentsTemplate, exportRows } from '@/lib/excel';
 import { formatPercent } from '@/lib/format';
 import { useSeo } from '@/hooks/useSeo';
 import type { Student } from '@/types/db';
@@ -20,6 +21,7 @@ const PAGE_SIZE = 25;
 export default function StudentsAdmin() {
   useSeo({ title: 'الطلاب والحضور', noIndex: true });
 
+  const navigate = useNavigate();
   const toast = useToast();
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -71,9 +73,9 @@ export default function StudentsAdmin() {
           Academic_Year: s.academic_year ?? '',
           Guardian_Name: s.guardian_name ?? '',
           Guardian_Phone: s.guardian_phone ?? '',
-          Attendance_Days: a?.attendance_days ?? '',
-          Absence_Days: a?.absence_days ?? '',
-          Total_School_Days: a?.total_school_days ?? '',
+          Attendance_Days: a?.attendance_days ?? 0,
+          Absence_Days: a?.absence_days ?? 0,
+          Total_School_Days: a?.total_school_days ?? 0,
           Attendance_Percentage: a?.attendance_pct ?? '',
           Absence_Percentage: a?.absence_pct ?? '',
           Status: s.status,
@@ -94,6 +96,12 @@ export default function StudentsAdmin() {
       description="بيانات الطلاب ونسب حضورهم. تُستورد عادةً دفعةً واحدة من ملف Excel، ويمكن تعديل أي سجل يدوياً من هنا."
       action={
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => downloadStudentsTemplate()} icon={<Download className="h-4 w-4" />}>
+            تحميل قالب Excel
+          </Button>
+          <Button variant="secondary" onClick={() => navigate('/admin/import')} icon={<FileUp className="h-4 w-4" />}>
+            استيراد ملف Excel
+          </Button>
           <Button variant="secondary" loading={exporting} onClick={() => void doExport()} icon={<FileDown className="h-4 w-4" />}>
             تصدير Excel
           </Button>
