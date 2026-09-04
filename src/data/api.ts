@@ -384,10 +384,14 @@ export async function uploadFile(bucket: 'media' | 'books' | 'attachments', file
 
 /* ───────────────────────────── الإدارة والصلاحيات ───────────────────────────── */
 export async function fetchCurrentAdmin(): Promise<AdminUser | null> {
-  const { data: sess } = await supabase.auth.getUser();
-  if (!sess.user) return null;
-  const res = await supabase.from('admin_users').select('*').eq('user_id', sess.user.id).maybeSingle();
-  if (res.error) return null;
+  const { data: authData } = await supabase.auth.getUser();
+  const user = authData.user ?? (await supabase.auth.getSession()).data.session?.user;
+  if (!user) return null;
+  const res = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
+  if (res.error) {
+    console.error('Error fetching admin user profile:', res.error);
+    return null;
+  }
   return res.data as AdminUser | null;
 }
 
