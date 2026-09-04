@@ -86,7 +86,7 @@ const router = createBrowserRouter([
       { path: 'coming-soon',      element: <ComingSoon /> },
     ],
   },
-]);
+], { basename: import.meta.env.BASE_URL });
 
 const queryClient = new QueryClient({
   defaultOptions: {
