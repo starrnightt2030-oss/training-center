@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
 export default defineConfig({
+  // مسار الأساس — '/' على Cloudflare Pages أو نطاق مخصص،
+  // و'/<اسم-المستودع>/' على GitHub Pages. يُضبط بمتغيّر البيئة VITE_BASE.
+  base: process.env.VITE_BASE ?? '/',
   plugins: [react()],
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   build: {
